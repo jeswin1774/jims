@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JIMS — JACSICE Information Management System</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Sora:wght@600;700;800&family=IBM+Plex+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&family=Baloo+Bhai+2:wght@400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.9/xlsx.full.min.js"></script>
+  <!-- Firebase v9 compat (works without bundler) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+  <script src="script.js" defer></script>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     PAGE: LOGIN  (id="page-login")
+     ═══════════════════════════════════════════════════════ -->
+<div id="page-login" class="page active">
+  <div class="login-header">
+    <img src="college-header.png" alt="College Header" class="college-header-img">
+  </div>
+  <div class="login-container" role="form" aria-label="Login form">
+    <div class="login-logo">
+      <div class="login-logo-icon">J</div>
+      <span class="login-brand">JIMS</span>
+    </div>
+    <h2>Welcome Back</h2>
+    <p class="login-sub">JACSICE Information Management System</p>
+
+    <label for="user-type">Select Role</label>
+    <select id="user-type" aria-label="Select user role">
+      <option value="student">Student Login</option>
+      <option value="teacher">Teacher Login</option>
+      <option value="admin">Administrator Login</option>
+    </select>
+
+    <label for="username">Username</label>
+    <input type="text" id="username" placeholder="Enter Username" required />
+
+    <div id="passwordSection">
+      <label for="password">Password</label>
+      <input type="password" id="password" placeholder="Enter Password" required />
+    </div>
+
+    <label for="captcha-input">Enter CAPTCHA</label>
+    <div class="captcha-container">
+      <input type="text" id="captcha" disabled aria-disabled="true" />
+      <button type="button" onclick="generateCaptcha()">↻ Refresh</button>
+    </div>
+    <input type="text" id="captcha-input" placeholder="Enter CAPTCHA" required />
+
+    <!-- OTP Section — shown only for Student / Teacher (code is displayed in Admin Portal) -->
+    <div id="otpSection" style="display:none; margin-top:14px;">
+      <label style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+        <span><i class="fa fa-shield-halved" style="color:#22c55e;"></i> One-Time Password (OTP)</span>
+        <span style="font-size:0.75rem; color:#aaa;">Get code from Admin Portal</span>
+      </label>
+      <div style="background:rgba(34,197,94,0.07); border:1px solid rgba(34,197,94,0.25); border-radius:10px; padding:10px 14px; margin-bottom:8px; font-size:0.8rem; color:#86efac;">
+        <i class="fa fa-circle-info"></i> Ask your administrator for the current 6-digit OTP. It refreshes every 30 seconds.
+      </div>
+      <input type="text" id="otp-input" placeholder="Enter 6-digit OTP from administrator" maxlength="6"
+             style="letter-spacing:4px; font-family:'DM Mono',monospace; font-size:1.1rem; text-align:center;" />
+    </div>
+
+    <button class="login-btn" onclick="validateLogin()">Login →</button>
+    <button class="login-btn secondary" onclick="showAdminPortalPrompt()" style="margin-top:8px;"><i class="fa fa-shield"></i> Admin Portal</button>
+
+    <!-- Admin Portal Password Box -->
+    <div id="adminPortalBox" style="display:none; margin-top:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:10px; padding:16px;">
+      <label style="color:#ccc; font-size:0.85rem; display:block; margin-bottom:6px;"><i class="fa fa-shield-halved" style="color:#22c55e;"></i> Admin Portal Access</label>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <input type="password" id="adminPortalPassword" placeholder="Enter admin portal password" style="flex:1; padding:9px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(0,0,0,0.3); color:#fff; font-size:0.9rem;" onkeydown="if(event.key==='Enter') verifyAdminPortal()">
+        <button type="button" onclick="verifyAdminPortal()" style="padding:9px 16px; background:#22c55e; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:0.85rem; white-space:nowrap;"><i class="fa fa-arrow-right"></i> Enter</button>
+        <button type="button" onclick="document.getElementById('adminPortalBox').style.display='none'" style="padding:9px 12px; background:rgba(255,255,255,0.1); color:#ccc; border:none; border-radius:8px; cursor:pointer; font-size:0.85rem;"><i class="fa fa-xmark"></i></button>
+      </div>
+      <p id="adminPortalError" style="display:none; color:#f87171; font-size:0.8rem; margin-top:6px;"><i class="fa fa-circle-exclamation"></i> Incorrect password</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SHARED SIDEBAR (shown on all inner pages)
+     ═══════════════════════════════════════════════════════ -->
+<div id="app-shell" style="display:none; display:flex; min-height:100vh;">
+
+  <aside id="sidebar">
+    <button class="menu-btn" id="menuBtn" title="Toggle menu">
+      <i class="fa fa-chevron-left"></i>
+    </button>
+    <a href="#" class="logo-wrapper" onclick="navigate('home'); return false;">
+      <div class="logo-icon">J</div>
+      <span class="brand-name">JIMS</span>
+    </a>
+    <p class="sidebar-section-label">Navigation</p>
+    <ul class="menu-items">
+      <li>
+        <a href="#" class="nav-link" data-page="home">
+          <span class="icon fa fa-house"></span>
+          <span class="item-name">Home</span>
+        </a>
+        <span class="tooltip">Home</span>
+      </li>
+      <li>
+        <a href="#" class="nav-link" data-page="dashboard">
+          <span class="icon fa fa-layer-group"></span>
+          <span class="item-name">Dashboard</span>
+        </a>
+        <span class="tooltip">Dashboard</span>
+      </li>
+      <li>
+        <a href="#" class="nav-link" data-page="attendance">
+          <span class="icon fa fa-calendar-check"></span>
+          <span class="item-name">Attendance</span>
+        </a>
+        <span class="tooltip">Attendance</span>
+      </li>
+      <li>
+        <a href="#" class="nav-link" data-page="profiles">
+          <span class="icon fa fa-users"></span>
+          <span class="item-name">Student Profile</span>
+        </a>
+        <span class="tooltip">Student Profile</span>
+      </li>
+      <li>
+        <a href="#" class="nav-link" data-page="add-student">
+          <span class="icon fa fa-user-plus"></span>
+          <span class="item-name">Add Student</span>
+        </a>
+        <span class="tooltip">Add Student</span>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="user-avatar">A</div>
+        <div class="user-info">
+          <div class="user-name" id="loggedUserName">Admin</div>
+          <div class="user-role" id="loggedUserRole">Administrator</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ─── MAIN WRAPPER ─── -->
+  <div class="main-wrapper" id="mainWrapper">
+
+    <!-- ══ TOP BAR ══ -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 id="topbarTitle">Dashboard</h1>
+        <div class="breadcrumb" id="topbarBreadcrumb">JIMS › Dashboard</div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-search">
+          <i class="fa fa-search"></i>
+          <input type="text" id="topbarSearch" placeholder="Search students…">
+        </div>
+        <button class="icon-btn" id="toggleModeBtn" title="Toggle dark mode"><i class="fa fa-moon"></i></button>
+        <button class="icon-btn" onclick="doLogout()" title="Logout"><i class="fa fa-right-from-bracket"></i></button>
+      </div>
+    </header>
+
+    <!-- ══════════════════════════════════════════════════
+         PAGE: HOME
+         ══════════════════════════════════════════════════ -->
+    <div id="page-home" class="inner-page" style="display:none;">
+      <div class="home-wrapper">
+        <div class="home-hero">
+          <div class="home-hero-text">
+            <h2>Welcome to JIMS</h2>
+            <p>JACSICE College of Engineering — Department of Electronics &amp; Communication Engineering Information Management System</p>
+            <p class="home-sub">Jayaraj Annapackiam CSI College of Engineering, Approved by AICTE New Delhi and Affiliated to Anna University Chennai. Accredited by NBA (ECE), Nazareth - 628617.</p>
+          </div>
+          <div class="home-stats-row">
+            <div class="home-stat-card">
+              <span class="stat-icon"><i class="fa fa-users"></i></span>
+              <span class="stat-val" id="homeStatStudents">0</span>
+              <span class="stat-label">Students</span>
+            </div>
+            <div class="home-stat-card">
+              <span class="stat-icon"><i class="fa fa-calendar-check"></i></span>
+              <span class="stat-val" id="homeStatAttendance">—</span>
+              <span class="stat-label">Avg. Attendance</span>
+            </div>
+            <div class="home-stat-card">
+              <span class="stat-icon"><i class="fa fa-award"></i></span>
+              <span class="stat-val" id="homeStatScholar">0</span>
+              <span class="stat-label">Scholarship</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="home-content-grid">
+          <div class="home-card">
+            <h3><i class="fa fa-building-columns"></i> About JACSICE</h3>
+            <p>JACSICE is committed to academic excellence, innovation, and social responsibility with state-of-the-art facilities in Nazareth, Tamil Nadu.</p>
+            <p>UG programs: BE in CSE, ECE, Mech; B.Tech in AIDS and IT. PG programs: ME (CSE), MBA.</p>
+          </div>
+          <div class="home-card">
+            <h3><i class="fa fa-list-check"></i> Programmes Offered</h3>
+            <ul class="home-prog-list">
+              <li><span class="prog-badge ug">UG</span> BE — CSE, ECE, Mech</li>
+              <li><span class="prog-badge ug">UG</span> B.Tech — AIDS, IT</li>
+              <li><span class="prog-badge pg">PG</span> ME — CSE</li>
+              <li><span class="prog-badge pg">PG</span> MBA</li>
+            </ul>
+          </div>
+          <div class="home-card">
+            <h3><i class="fa fa-bolt"></i> Quick Actions</h3>
+            <div class="quick-actions">
+              <a href="#" class="action-btn" onclick="navigate('attendance'); return false;"><i class="fa fa-calendar-check"></i> Take Attendance</a>
+              <a href="#" class="action-btn" onclick="navigate('add-student'); return false;"><i class="fa fa-user-plus"></i> Add Student</a>
+              <a href="#" class="action-btn" onclick="navigate('profiles'); return false;"><i class="fa fa-users"></i> View Profiles</a>
+              <a href="#" class="action-btn" onclick="navigate('dashboard'); return false;"><i class="fa fa-chart-pie"></i> Dashboard</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
+         PAGE: DASHBOARD
+         ══════════════════════════════════════════════════ -->
+    <div id="page-dashboard" class="inner-page" style="display:none;">
+      <div class="dash-content">
+        <!-- KPI Cards -->
+        <div class="kpi-grid">
+          <div class="kpi-card accent">
+            <div class="kpi-icon"><i class="fa fa-users"></i></div>
+            <div class="kpi-body">
+              <div class="kpi-val" id="kpi-total">0</div>
+              <div class="kpi-label">Total Students</div>
+              <div class="kpi-delta" id="kpi-total-delta">—</div>
+            </div>
+          </div>
+          <div class="kpi-card blue">
+            <div class="kpi-icon"><i class="fa fa-award"></i></div>
+            <div class="kpi-body">
+              <div class="kpi-val" id="kpi-scholar">0</div>
+              <div class="kpi-label">With Scholarship</div>
+              <div class="kpi-delta" id="kpi-scholar-delta">—</div>
+            </div>
+          </div>
+          <div class="kpi-card amber">
+            <div class="kpi-icon"><i class="fa fa-layer-group"></i></div>
+            <div class="kpi-body">
+              <div class="kpi-val" id="kpi-departments">0</div>
+              <div class="kpi-label">Departments</div>
+              <div class="kpi-delta" id="dept-count-tag">—</div>
+            </div>
+          </div>
+          <div class="kpi-card violet">
+            <div class="kpi-icon"><i class="fa fa-people-group"></i></div>
+            <div class="kpi-body">
+              <div class="kpi-val" id="kpi-batches">0</div>
+              <div class="kpi-label">Batches</div>
+              <div class="kpi-delta" id="batch-count-tag">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Breakup panels -->
+        <div class="panels-grid">
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">By Department</span>
+            </div>
+            <div id="dept-breakup" class="breakup-list"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">By Batch</span>
+            </div>
+            <div id="batch-breakup" class="breakup-list"></div>
+          </div>
+        </div>
+
+        <!-- Recent Students Table -->
+        <div class="panel full-panel">
+          <div class="panel-header">
+            <span class="panel-title">Recent Students</span>
+          </div>
+          <div id="recent-table-wrap" class="table-scroll">
+            <p style="color:var(--text-secondary); padding:16px;">No students yet. <a href="#" onclick="navigate('add-student'); return false;" style="color:var(--accent);">Add one →</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
+         PAGE: ATTENDANCE
+         ══════════════════════════════════════════════════ -->
+    <div id="page-attendance" class="inner-page" style="display:none;">
+      <nav class="att-nav">
+        <button class="att-nav-btn active" onclick="showAttSection('homeSection')">🏠 Home</button>
+        <button class="att-nav-btn" onclick="showAttSection('attendanceSection')">📊 Take Attendance</button>
+        <button class="att-nav-btn" onclick="showAttSection('reportsSection')">📈 Reports</button>
+        <button class="att-nav-btn" onclick="showAttSection('historySection')">📋 History</button>
+      </nav>
+
+      <!-- Home sub-section -->
+      <div id="homeSection" class="att-section">
+        <h2>Welcome to ECE Attendance Management</h2>
+        <div class="attendance-summary">
+          <h3>Quick Stats</h3>
+          <p>Today's Date: <strong id="currentDate"></strong></p>
+          <p><strong>Critical Students (Attendance &lt; 80%)</strong> — <span id="criticalCount">0</span></p>
+          <ul id="criticalList" style="margin-top:8px; list-style:disc; padding-left:20px;">
+            <li>No critical students</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Take Attendance sub-section -->
+      <div id="attendanceSection" class="att-section" style="display:none;">
+        <h2>Take Attendance</h2>
+        <div class="filter-container">
+          <div>
+            <label for="filterBatch">Batch (ECE):</label>
+            <select id="filterBatch" onchange="loadStudents()">
+              <option value="">Select Batch</option>
+              <option value="ECE 2nd Year">ECE 2nd Year</option>
+              <option value="ECE 3rd Year">ECE 3rd Year</option>
+              <option value="ECE 4th Year">ECE 4th Year</option>
+            </select>
+          </div>
+        </div>
+        <div id="attendanceTableContainer">
+          <table id="attendanceTable">
+            <thead>
+              <tr>
+                <th>S.No</th><th>Register No.</th><th>Student Name</th><th>Department</th>
+                <th>Present</th><th>Half Day</th><th>Absent</th><th>Remarks</th>
+              </tr>
+            </thead>
+            <tbody id="attendanceTableBody">
+              <tr><td colspan="8" style="text-align:center">Select batch to load students</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="attendance-actions">
+          <button onclick="markAllPresent()">Mark All Present</button>
+          <button onclick="markAllAbsent()">Mark All Absent</button>
+          <button onclick="saveAttendance()">💾 Save Attendance</button>
+          <button onclick="exportToExcel()">📥 Export to Excel</button>
+        </div>
+      </div>
+
+      <!-- Reports sub-section -->
+      <div id="reportsSection" class="att-section" style="display:none;">
+        <h2>Attendance Reports</h2>
+        <div class="filter-container">
+          <div>
+            <label for="reportBatch">Batch (ECE):</label>
+            <select id="reportBatch" onchange="generateReport()">
+              <option value="">All Batches</option>
+              <option value="ECE 2nd Year">ECE 2nd Year</option>
+              <option value="ECE 3rd Year">ECE 3rd Year</option>
+              <option value="ECE 4th Year">ECE 4th Year</option>
+            </select>
+          </div>
+          <div>
+            <label for="reportThreshold">Threshold (%):</label>
+            <select id="reportThreshold" onchange="generateReport()">
+              <option value="90">Below 90%</option>
+              <option value="85">Below 85%</option>
+              <option value="80">Below 80%</option>
+            </select>
+          </div>
+        </div>
+        <table id="reportTable">
+          <thead>
+            <tr><th>Register No.</th><th>Student Name</th><th>Department</th><th>Batch</th><th>Attendance %</th><th>Status</th></tr>
+          </thead>
+          <tbody id="reportTableBody"></tbody>
+        </table>
+        <div class="attendance-actions">
+          <button onclick="exportReportToExcel()">📥 Download Report</button>
+          <button onclick="sendAlerts()">⚠️ Send Alerts</button>
+        </div>
+      </div>
+
+      <!-- History sub-section -->
+      <div id="historySection" class="att-section" style="display:none;">
+        <h2>Attendance History</h2>
+        <div class="filter-container">
+          <div>
+            <label for="historyDate">Date:</label>
+            <input type="date" id="historyDate" onchange="loadAttendanceHistory()">
+          </div>
+          <div>
+            <label for="historyBatch">Batch (ECE):</label>
+            <select id="historyBatch" onchange="loadAttendanceHistory()">
+              <option value="">All Batches</option>
+              <option value="ECE 2nd Year">ECE 2nd Year</option>
+              <option value="ECE 3rd Year">ECE 3rd Year</option>
+              <option value="ECE 4th Year">ECE 4th Year</option>
+            </select>
+          </div>
+        </div>
+        <table id="historyTable">
+          <thead>
+            <tr><th>Date</th><th>Register No.</th><th>Student Name</th><th>Department</th><th>Status</th><th>Remarks</th></tr>
+          </thead>
+          <tbody id="historyTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
+         PAGE: STUDENT PROFILES
+         ══════════════════════════════════════════════════ -->
+    <div id="page-profiles" class="inner-page" style="display:none;">
+      <div class="profiles-toolbar">
+        <div class="search-wrapper">
+          <i class="fa fa-search"></i>
+          <input type="text" id="searchInput" placeholder="Search by name, register no., email…">
+        </div>
+        <button class="header-btn ghost" id="filterToggleBtn"><i class="fa fa-sliders"></i> Filters</button>
+        <button class="header-btn ghost" id="downloadReport"><i class="fa fa-download"></i> Download CSV</button>
+        <button class="header-btn primary" id="addStudentBtn"><i class="fa fa-user-plus"></i> Add Student</button>
+      </div>
+
+      <div id="filtersContainer" style="display:none;" class="filters-panel">
+        <h3>Filters</h3>
+        <div class="filters-row">
+          <div class="filter-group">
+            <button class="filter-btn" data-target="personalFilters">Personal Profile ▾</button>
+            <div class="filter-options" id="personalFilters" style="display:none;">
+              <label><input type="checkbox" value="name"> NAME</label>
+              <label><input type="checkbox" value="aadhaar"> AADHAAR</label>
+              <label><input type="checkbox" value="email"> EMAIL</label>
+              <label><input type="checkbox" value="mobile"> MOBILE</label>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <button class="filter-btn" data-target="communityFilters">Community / Religion ▾</button>
+            <div class="filter-options" id="communityFilters" style="display:none;">
+              <label><input type="checkbox" value="gender"> GENDER</label>
+              <label><input type="checkbox" value="caste"> CASTE</label>
+              <label><input type="checkbox" value="religion"> RELIGION</label>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <button class="filter-btn" data-target="scholarshipFilters">Scholarship ▾</button>
+            <div class="filter-options" id="scholarshipFilters" style="display:none;">
+              <label><input type="checkbox" value="fg_yes"> First Graduate — Yes</label>
+              <label><input type="checkbox" value="fg_no"> First Graduate — No</label>
+              <label><input type="checkbox" value="pmss_yes"> PMSS — Yes</label>
+              <label><input type="checkbox" value="pmss_no"> PMSS — No</label>
+              <label><input type="checkbox" value="bcmbc_yes"> MBC/BC — Yes</label>
+              <label><input type="checkbox" value="bcmbc_no"> MBC/BC — No</label>
+              <label><input type="checkbox" value="dncbcm_yes"> DNC/BCM/DNT — Yes</label>
+              <label><input type="checkbox" value="dncbcm_no"> DNC/BCM/DNT — No</label>
+              <label><input type="checkbox" value="sevenfive_yes"> 7.5% Scholarship — Yes</label>
+              <label><input type="checkbox" value="sevenfive_no"> 7.5% Scholarship — No</label>
+              <label><input type="checkbox" value="pudhumai_yes"> Pudhumai Penn — Yes</label>
+              <label><input type="checkbox" value="pudhumai_no"> Pudhumai Penn — No</label>
+              <label><input type="checkbox" value="tamilpulhalwan_yes"> Tamil Pulhalwan — Yes</label>
+              <label><input type="checkbox" value="tamilpulhalwan_no"> Tamil Pulhalwan — No</label>
+              <label><input type="checkbox" value="central_yes"> Central Scholarship — Yes</label>
+              <label><input type="checkbox" value="central_no"> Central Scholarship — No</label>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <button class="filter-btn" data-target="bankFilters">Bank Details ▾</button>
+            <div class="filter-options" id="bankFilters" style="display:none;">
+              <label><input type="checkbox" value="bankName"> Bank Name</label>
+              <label><input type="checkbox" value="accountNumber"> Account Number</label>
+              <label><input type="checkbox" value="ifsc"> IFSC</label>
+              <label><input type="checkbox" value="micr"> MICR</label>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <button class="filter-btn" data-target="familyFilters">Family Details ▾</button>
+            <div class="filter-options" id="familyFilters" style="display:none;">
+              <label><input type="checkbox" value="fatherName"> Father Name</label>
+              <label><input type="checkbox" value="motherName"> Mother Name</label>
+              <label><input type="checkbox" value="fatherDOB"> Father's DOB</label>
+              <label><input type="checkbox" value="parentContact"> Parent Contact No.</label>
+            </div>
+          </div>
+
+          <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+            <button class="header-btn ghost" id="applyBtn"><i class="fa fa-check"></i> Apply</button>
+            <button class="header-btn ghost" id="clearFiltersBtn"><i class="fa fa-xmark"></i> Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>#</th><th>Photo</th><th>Student Name</th><th>Register No.</th>
+              <th>Batch</th><th>Mobile</th><th>Scholarship</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="studentTableBody">
+            <tr><td colspan="8" style="text-align:center; padding:24px; color:#888;">No students found. <a href="#" onclick="navigate('add-student'); return false;" style="color:var(--accent);">Add a student →</a></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <input type="file" id="profilePhotoInput" accept="image/*" style="display:none">
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
+         PAGE: ADD / EDIT STUDENT
+         ══════════════════════════════════════════════════ -->
+    <div id="page-add-student" class="inner-page" style="display:none;">
+      <nav class="step-nav" id="stepNav">
+        <button class="step-btn active" data-step="0"><span class="step-num">1</span> Personal</button>
+        <button class="step-btn" data-step="1"><span class="step-num">2</span> Address</button>
+        <button class="step-btn" data-step="2"><span class="step-num">3</span> Academic</button>
+        <button class="step-btn" data-step="3"><span class="step-num">4</span> Family</button>
+        <button class="step-btn" data-step="4"><span class="step-num">5</span> Bank</button>
+        <button class="step-btn" data-step="5"><span class="step-num">6</span> Scholarship</button>
+        <button class="step-btn" data-step="6"><span class="step-num">7</span> Sports</button>
+      </nav>
+
+      <form id="studentForm" novalidate>
+        <input type="hidden" id="studentId">
+        <input type="hidden" id="studentFirebaseId">
+
+        <!-- STEP 0: PERSONAL -->
+        <div class="form-step" data-step="0">
+          <div class="form-card">
+            <div class="form-card-header"><div class="card-icon blue"><i class="fa fa-camera"></i></div><h2>Passport Photo</h2><span class="card-badge">Optional</span></div>
+            <div class="photo-upload-area">
+              <div class="photo-preview" id="photoPreview" onclick="document.getElementById('photoFileInput').click()">
+                <i class="fa fa-user photo-placeholder" id="photoPlaceholderIcon"></i>
+                <span class="photo-hint" id="photoHintText">Click to upload</span>
+                <img id="photoPreviewImg" style="display:none" alt="Student Photo">
+              </div>
+              <div class="photo-info">
+                <h3>Student Passport Photo</h3>
+                <p>Upload a passport-size photo (JPG, PNG).<br>Recommended: 3.5cm × 4.5cm, clear background.</p>
+                <div class="photo-actions">
+                  <button type="button" class="upload-btn" onclick="document.getElementById('photoFileInput').click()"><i class="fa fa-upload"></i> Upload Photo</button>
+                  <button type="button" class="remove-btn" id="removePhotoBtn"><i class="fa fa-trash"></i> Remove</button>
+                </div>
+              </div>
+              <input type="file" id="photoFileInput" accept="image/*" style="display:none">
+            </div>
+          </div>
+          <div class="form-card">
+            <div class="form-card-header"><div class="card-icon violet"><i class="fa fa-layer-group"></i></div><h2>Batch Selection</h2><span class="card-badge">Required</span></div>
+            <div class="form-card-body">
+              <div class="form-grid cols-3">
+                <div class="form-group"><label>Select Batch <span class="req">*</span></label>
+                  <select id="Batch">
+                    <option value="" disabled selected>— Select Batch —</option>
+                    <option value="ECE 2nd Year">ECE 2nd Year</option>
+                    <option value="ECE 3rd Year">ECE 3rd Year</option>
+                    <option value="ECE 4th Year">ECE 4th Year</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="form-card">
+            <div class="form-card-header"><div class="card-icon blue"><i class="fa fa-id-card"></i></div><h2>Personal Information</h2></div>
+            <div class="form-card-body">
+              <div class="form-grid">
+                <div class="form-group"><label>Student Name <span class="req">*</span></label><input type="text" id="studentName" placeholder="Full name"></div>
+                <div class="form-group"><label>Register Number <span class="req">*</span></label><input type="text" id="registerNumber" placeholder="Register number"></div>
+                <div class="form-group"><label>Date of Birth</label><input type="date" id="dateOfBirth"></div>
+                <div class="form-group"><label>Aadhaar Number</label><input type="text" id="aadhaarNumber" placeholder="12-digit Aadhaar"></div>
+                <div class="form-group"><label>Email ID</label><input type="email" id="studentEmail" placeholder="student@example.com"></div>
+                <div class="form-group"><label>Mobile Number</label><input type="tel" id="mobileNumber" placeholder="10-digit mobile"></div>
+                <div class="form-group"><label>Blood Group</label><input type="text" id="bloodGroup" placeholder="e.g. A+"></div>
+                <div class="form-group"><label>Gender</label>
+                  <select id="gender"><option value="">— Select —</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></select>
+                </div>
+                <div class="form-group"><label>Community</label><input type="text" id="community" placeholder="Community"></div>
+                <div class="form-group"><label>Caste</label><input type="text" id="caste" placeholder="Caste"></div>
+                <div class="form-group"><label>Religion</label><input type="text" id="religion" placeholder="Religion"></div>
+                <div class="form-group"><label>Languages</label><input type="text" id="languages" placeholder="Languages spoken"></div>
+                <div class="form-group col-full"><label>Physically Challenged</label>
+                  <div class="radio-group">
+                    <label class="radio-label"><input type="radio" name="physicallyChallenged" value="yes"> Yes</label>
+                    <label class="radio-label"><input type="radio" name="physicallyChallenged" value="no"> No</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 1: ADDRESS -->
+        <div class="form-step" data-step="1" style="display:none">
+          <div class="form-card">
+            <div class="form-card-header"><div class="card-icon teal"><i class="fa fa-location-dot"></i></div><h2>Address Details</h2></div>
+            <div class="form-card-body">
+              <div class="form-grid">
+                <div class="form-group col-full"><label>Current Address</label><textarea id="address" placeholder="Current address"></textarea></div>
+                <div class="form-group col-full"><label>Permanent Address</label><textarea id="permanentAddress" placeholder="Permanent address"></textarea></div>
+                <div class="form-group"><label>Country</label><input type="text" id="country" placeholder="Country"></div>
+                <div class="form-group"><label>State</label><input type="text" id="state" placeholder="State / UT"></div>
+                <div class="form-group"><label>District</label><input type="text" id="district" placeholder="District"></div>
+                <div class="form-group"><label>Taluk</label><input type="text" id="taluk" placeholder="Taluk"></div>
+                <div class="form-group"><label>Village</label><input type="text" id="village" placeholder="Village"></div>
+                <div class="form-group"><label>Pincode</label><input type="text" id="pincode" placeholder="Pincode"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 2: ACADEMIC -->
+        <div class="form-step" data-step="2" style="display:none">
+          <div class="form-card">
+            <div class="form-card-header"><div class="card-icon amber"><i class="fa fa-school"></i></div><h2>School History (6th – 12th)</h2></div>
+            <div class="form-card-body">
+              <table class="school-table">
+                <thead><tr><th>Class</th><th>School Name</th><th>Place</th><th>Pass-Out Year</th></tr></thead>
+                <tbody>
+                  <tr><td>6th</td><td><input type="text" id="schoolName6" placeholder="School name"></td><td><input type="text" id="schoolPlace6" placeholder="Place"></td><td><input type="text" id="schoolYear6" placeholder="Year"></td></tr>
+                  <tr><td>7th</td><td><input type="text" id="schoolName7" placeholder="School name"></td><td><input type="text" id="schoolPlace7" placeholder="Place"></td><td><input type="text" id="schoolYear7" placeholder="Year"></td></tr>
+                  <tr><td>8th</td><td><input type="text" id="schoolName8" placeholder="School name"></td><td><input type="text" id="schoolPlace8" placeholder="Place"></td><td><input type="text" id="schoolYear8" placeholder="Year"></td></tr>
+                  <tr><td>10th</td><td><input type="text" id="schoolName10" placeholder="School name"></td><td><input type="text" id="schoolPlace10" placeholder="Place"></td><td><input type="text" id="schoolYear10" placeholder="Year"></td></tr>
+                  <tr><td>12th</td><td><input type="text" id="schoolName12" placeholder="School name"></td><td><input type="text" id="schoolPlace12" placeholder="Place"></td><td><input type="text" id="schoolYear12" placeholder="Year"></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="form-card">
+            <div class="form-card-header"><div class="card-icon amber"><i class="fa fa-certificate"></i></div><h2>SSLC Details</h2></div>
+            <div class="form-card-body">
+              <div class="form-grid cols-3">
+                <div class="form-group"><label>Register Number</label><input type="text" id="sslcRegisterNumber" placeholder="SSLC reg. no."></div>
+                <div class="form-group"><label>Board</label><input type="text" id="sslcBoard" placeholder="Board name"></div>
+                <div class="form-group"><label>Percentage / CGPA</label><input type="text" id="sslcPercentage" placeholder="%"></div>
+                <div class="form-group"><label>Month &amp; Year of Passing</label><input type="text" id="sslcMonthYear" placeholder="e.g. March 2020"></div>
+                <div class="form-group"><label>School Name</label><input type="text" id="sslcSchool" placeholder="School name"></div>
+              </div>
+            </div>
+          </div>
+          <div class="form-card">
+            <div class="form-card-header"><div class="card-icon amber"><i class="fa fa-book-open"></i></div><h2>HSC Details</h2></div>
+            <div class="form-card-body">
+              <div class="form-grid cols-3">
+                <div class="form-group"><label>Group</label><input type="text" id="hscGroup" placeholder="e.g. Maths Bio"></div>
+                <div class="form-group"><label>Total</label><input type="text" id="hscTotal" placeholder="Total"></div>
+                <div class="form-group"><label>Percentage</label><input type="text" id="hscPercentage" placeholder="%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 3: FAMILY -->
+        <div class="form-step" data-step="3" style="display:none">
+          <div class="form-card">
+            <div class="form-card-header"><div class="card-icon violet"><i class="fa fa-people-roof"></i></div><h2>Family Details</h2></div>
+            <div class="form-card-body">
+              <div class="form-grid">
+                <div class="form-group"><label>Father's Name</label><input type="text" id="fatherName" placeholder="Father's full name"></div>
+                <div class="form-group"><label>Father's Occupation</label><input type="text" id="fatherOccupation" placeholder="Occupation"></div>
+                <div class="form-group"><label>Mother's Name</label><input type="text" id="motherName" placeholder="Mother's full name"></div>
+                <div class="form-group"><label>Mother's Occupation</label><input type="text" id="motherOccupation" placeholder="Occupation"></div>
+                <div class="form-group"><label>Parents' Contact Number</label><input type="tel" id="parentsContactNumber" placeholder="Contact number"></div>
+                <div class="form-group"><label>Annual Income (₹)</label><input type="text" id="annualIncome" placeholder="Annual income"></div>
+                <div class="form-group"><label>Number of Siblings</label><input type="text" id="siblings" placeholder="Number"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 4: BANK -->
+        <div class="form-step" data-step="4" style="display:none">
+          <div class="form-card">
+            <div class="form-card-header"><div class="card-icon green"><i class="fa fa-building-columns"></i></div><h2>Bank Account Details</h2></div>
+            <div class="form-card-body">
+              <div class="form-grid cols-3">
+                <div class="form-group col-span-2"><label>Bank Name</label><input type="text" id="bankName" placeholder="Bank name"></div>
+                <div class="form-group"><label>Branch</label><input type="text" id="branch" placeholder="Branch"></div>
+                <div class="form-group"><label>Account Number</label><input type="text" id="accountNumber" placeholder="Account number"></div>
+                <div class="form-group"><label>IFSC Code</label><input type="text" id="ifsc" placeholder="IFSC"></div>
+                <div class="form-group"><label>MICR Code</label><input type="text" id="micr" placeholder="MICR"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 5: SCHOLARSHIP -->
+        <div class="form-step" data-step="5" style="display:none">
+          <div class="form-card">
+            <div class="form-card-header"><div class="card-icon rose"><i class="fa fa-award"></i></div><h2>Scholarship &amp; Other Information</h2></div>
+            <div class="form-card-body">
+              <div class="form-grid">
+                <div class="form-group"><label>First Graduate</label><div class="radio-group"><label class="radio-label"><input type="radio" name="firstGraduate" value="yes"> Yes</label><label class="radio-label"><input type="radio" name="firstGraduate" value="no"> No</label></div></div>
+                <div class="form-group"><label>PMSS</label><div class="radio-group"><label class="radio-label"><input type="radio" name="pmss" value="yes"> Yes</label><label class="radio-label"><input type="radio" name="pmss" value="no"> No</label></div></div>
+                <div class="form-group"><label>MBC / BC Scholarship</label><div class="radio-group"><label class="radio-label"><input type="radio" name="mbcBc" value="yes"> Yes</label><label class="radio-label"><input type="radio" name="mbcBc" value="no"> No</label></div></div>
+                <div class="form-group"><label>DNC / BCM / DNT</label><div class="radio-group"><label class="radio-label"><input type="radio" name="dncBcmDnt" value="yes"> Yes</label><label class="radio-label"><input type="radio" name="dncBcmDnt" value="no"> No</label></div></div>
+                <div class="form-group"><label>7.5% Scholarship</label><div class="radio-group"><label class="radio-label"><input type="radio" name="scholarship75" value="yes"> Yes</label><label class="radio-label"><input type="radio" name="scholarship75" value="no"> No</label></div></div>
+                <div class="form-group"><label>Pudhumai Penn</label><div class="radio-group"><label class="radio-label"><input type="radio" name="pudhumaiPenn" value="yes"> Yes</label><label class="radio-label"><input type="radio" name="pudhumaiPenn" value="no"> No</label></div></div>
+                <div class="form-group"><label>Tamil Pulhalwan</label><div class="radio-group"><label class="radio-label"><input type="radio" name="tamilPulhalwan" value="yes"> Yes</label><label class="radio-label"><input type="radio" name="tamilPulhalwan" value="no"> No</label></div></div>
+                <div class="form-group"><label>Central Scholarship</label><div class="radio-group"><label class="radio-label"><input type="radio" name="centralScholarship" value="yes"> Yes</label><label class="radio-label"><input type="radio" name="centralScholarship" value="no"> No</label></div></div>
+                <div class="form-group" id="centralScholarshipSectorWrap" style="display:none"><label>Central Scholarship — Sector</label><input type="text" id="centralScholarshipSector" placeholder="Sector name"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 6: SPORTS -->
+        <div class="form-step" data-step="6" style="display:none">
+          <div class="form-card">
+            <div class="form-card-header"><div class="card-icon teal"><i class="fa fa-person-running"></i></div><h2>Sports &amp; Extracurricular</h2></div>
+            <div class="form-card-body">
+              <div class="form-grid">
+                <div class="form-group"><label>Sports</label><input type="text" id="sports" placeholder="Sports activities"></div>
+                <div class="form-group"><label>Other Sports</label><input type="text" id="othersSports" placeholder="Other sports"></div>
+                <div class="form-group"><label>Extra Curricular</label><input type="text" id="extraCurricular" placeholder="Activities"></div>
+                <div class="form-group"><label>Other Extra Curricular</label><input type="text" id="othersExtraCurricular" placeholder="Other activities"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Bar -->
+        <div class="form-actions">
+          <div class="form-actions-left">
+            <button type="button" class="btn btn-prev" id="prevBtn" style="display:none"><i class="fa fa-chevron-left"></i> Previous</button>
+          </div>
+          <div class="form-actions-right">
+            <button type="button" class="btn btn-close" onclick="navigate('profiles')"><i class="fa fa-xmark"></i> Cancel</button>
+            <button type="button" class="btn btn-next" id="nextBtn">Next <i class="fa fa-chevron-right"></i></button>
+            <button type="submit" class="btn btn-save" id="saveBtn" style="display:none"><i class="fa fa-floppy-disk"></i> Save Student</button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+  </div><!-- /.main-wrapper -->
+</div><!-- /#app-shell -->
+
+<!-- ═══════════════════════════════════════════════════════
+     ADMIN PORTAL PAGE (overlay modal style)
+     ═══════════════════════════════════════════════════════ -->
+<div id="adminPortalOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; overflow-y:auto;">
+  <div style="max-width:680px; margin:40px auto; background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+    <div style="background:linear-gradient(135deg,#1e3c72,#16a34a); padding:28px 32px; color:#fff;">
+      <div style="display:flex; align-items:center; gap:14px;">
+        <div style="width:48px;height:48px;background:rgba(255,255,255,0.15);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;"><i class="fa fa-shield-halved"></i></div>
+        <div>
+          <h1 style="font-size:1.4rem; font-weight:700; margin:0;">Admin Portal</h1>
+          <p style="opacity:0.8; font-size:0.85rem; margin:0;">JIMS System Administration</p>
+        </div>
+        <button onclick="stopPortalOTPClock(); document.getElementById('adminPortalOverlay').style.display='none'" style="margin-left:auto; background:rgba(255,255,255,0.15); border:none; color:#fff; width:36px; height:36px; border-radius:8px; cursor:pointer; font-size:1rem;"><i class="fa fa-xmark"></i></button>
+      </div>
+    </div>
+    <div style="padding:28px 32px;">
+
+      <!-- Live OTP Display for Student & Teacher Login -->
+      <div style="background:linear-gradient(135deg,#052e16,#14532d); border:1px solid #16a34a; border-radius:14px; padding:20px 24px; margin-bottom:20px;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+          <div style="width:36px;height:36px;background:rgba(34,197,94,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem;color:#22c55e;"><i class="fa fa-key"></i></div>
+          <div>
+            <h3 style="color:#4ade80; margin:0; font-size:0.95rem; font-weight:700;">Current Login OTP</h3>
+            <p style="color:#86efac; font-size:0.75rem; margin:0;">Share this code with students &amp; teachers — refreshes every 30 seconds</p>
+          </div>
+        </div>
+        <!-- OTP Code + Timer Row -->
+        <div style="display:flex; align-items:center; gap:16px; background:rgba(0,0,0,0.35); border-radius:12px; padding:14px 18px;">
+          <span id="portalOtpDisplay" style="font-family:'DM Mono',monospace; font-size:2.4rem; font-weight:700; color:#22c55e; letter-spacing:10px; flex:1;">------</span>
+          <!-- Circular countdown -->
+          <div style="text-align:center; flex-shrink:0;">
+            <svg id="portalOtpSvg" viewBox="0 0 44 44" width="52" height="52" style="transform:rotate(-90deg); display:block;">
+              <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="4"/>
+              <circle id="portalOtpArc" cx="22" cy="22" r="18" fill="none" stroke="#22c55e" stroke-width="4"
+                stroke-dasharray="113 113" stroke-linecap="round"/>
+            </svg>
+            <div id="portalOtpCount" style="font-size:0.72rem; color:#86efac; margin-top:4px; font-weight:600;">30s</div>
+          </div>
+        </div>
+        <p style="color:#86efac; font-size:0.76rem; margin-top:10px; margin-bottom:0;"><i class="fa fa-triangle-exclamation" style="color:#fbbf24;"></i> Administrator login does <strong style="color:#fff;">not</strong> require OTP — only Student &amp; Teacher logins do.</p>
+      </div>
+
+      <!-- Students Management Summary -->
+      <div style="background:#eff6ff; border:1px solid #93c5fd; border-radius:12px; padding:18px; margin-bottom:20px;">
+        <h3 style="color:#1d4ed8; margin-bottom:10px; font-size:0.95rem;"><i class="fa fa-users"></i> Student Records</h3>
+        <p style="font-size:0.88rem; color:#1e3a8a;">Total Students: <strong id="portalStudentCount">0</strong> &nbsp;|&nbsp; Only Administrator can add, edit, or delete student records.</p>
+      </div>
+
+      <!-- System Settings -->
+      <div style="background:#fafafa; border:1px solid #e5e7eb; border-radius:12px; padding:18px; margin-bottom:20px;">
+        <h3 style="margin-bottom:14px; font-size:0.95rem; color:#374151;"><i class="fa fa-cog"></i> System Settings</h3>
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f0f0f0;">
+          <div>
+            <p style="font-weight:600; font-size:0.88rem; color:#111;">Dark Mode</p>
+            <p style="font-size:0.78rem; color:#888;">Toggle application dark theme</p>
+          </div>
+          <button onclick="document.getElementById('toggleModeBtn').click(); " style="padding:7px 14px; background:#22c55e; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:0.82rem;">Toggle</button>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 0;">
+          <div>
+            <p style="font-weight:600; font-size:0.88rem; color:#111;">Clear All Student Data</p>
+            <p style="font-size:0.78rem; color:#888;">Permanently delete all student records</p>
+          </div>
+          <button onclick="clearAllStudentData()" style="padding:7px 14px; background:#ef4444; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:0.82rem;">Clear Data</button>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; justify-content:flex-end;">
+        <button onclick="stopPortalOTPClock(); document.getElementById('adminPortalOverlay').style.display='none'; doLogout();" style="padding:10px 18px; background:#6b7280; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:0.88rem;"><i class="fa fa-sign-out"></i> Logout</button>
+        <button onclick="stopPortalOTPClock(); document.getElementById('adminPortalOverlay').style.display='none'" style="padding:10px 18px; background:#22c55e; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:0.88rem;"><i class="fa fa-arrow-left"></i> Close Portal</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     VIEW STUDENT PAGE (modal overlay)
+     ═══════════════════════════════════════════════════════ -->
+<div id="viewStudentOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9998; overflow-y:auto;">
+  <div style="max-width:800px; margin:30px auto; background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+    <div style="background:linear-gradient(135deg,#1e3c72,#16a34a); padding:22px 28px; color:#fff; display:flex; align-items:center; gap:14px;">
+      <h2 style="margin:0; font-size:1.3rem; flex:1;"><i class="fa fa-id-card"></i> Student Information</h2>
+      <button onclick="if(window.currentViewRole==='admin'){window.editFromView && window.editFromView();}" id="viewEditBtn" style="padding:8px 16px; background:rgba(255,255,255,0.2); color:#fff; border:1px solid rgba(255,255,255,0.3); border-radius:8px; cursor:pointer; font-size:0.85rem; display:none;"><i class="fa fa-pen"></i> Edit</button>
+      <button onclick="printStudentView()" style="padding:8px 16px; background:rgba(255,255,255,0.2); color:#fff; border:1px solid rgba(255,255,255,0.3); border-radius:8px; cursor:pointer; font-size:0.85rem;"><i class="fa fa-print"></i> Print</button>
+      <button onclick="document.getElementById('viewStudentOverlay').style.display='none'" style="background:rgba(255,255,255,0.15); border:none; color:#fff; width:36px; height:36px; border-radius:8px; cursor:pointer; font-size:1rem;"><i class="fa fa-xmark"></i></button>
+    </div>
+    <div id="viewStudentContent" style="padding:28px;">
+      <!-- filled dynamically -->
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
