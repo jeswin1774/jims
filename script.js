@@ -45,10 +45,14 @@ let currentUserRole = 'student';
 
 function navigate(page, opts = {}) {
   if (!PAGES.includes(page)) return;
+  
+  // Only admins can access add-student page
   if (page === 'add-student' && currentUserRole !== 'admin') {
     alert('Only administrators can add or edit students.');
     return;
   }
+
+  // Students can access attendance page but only for Reports and History (handled in initAttendancePage)
 
   PAGES.forEach(p => {
     const el = document.getElementById('page-' + p);
@@ -92,61 +96,40 @@ function generateCaptcha() {
 }
 
 /* ── OTP System ── */
-let _otpValue = '';
-let _otpTimer = null;
-
-function generateOTP() {
-  const slot = Math.floor(Date.now() / 30000);
-  let n = slot;
-  n = ((n >> 16) ^ n) * 0x45d9f3b;
-  n = ((n >> 16) ^ n) * 0x45d9f3b;
-  n = (n >> 16) ^ n;
-  _otpValue = String(Math.abs(n) % 1000000).padStart(6, '0');
-  return _otpValue;
-}
-
-function startOTPClock() {
-  if (!document.getElementById('otpDisplay')) return;
-  function tick() {
-    const now         = Date.now();
-    const msInSlot    = now % 30000;
-    const secondsLeft = Math.ceil((30000 - msInSlot) / 1000);
-    const slotOtp     = generateOTP();
-    const displayEl   = document.getElementById('otpDisplay');
-    const arcEl       = document.getElementById('otpTimerArc');
-    const countEl     = document.getElementById('otpTimerCount');
-    if (displayEl) displayEl.textContent = slotOtp;
-    const pct = ((30000 - msInSlot) / 30000) * 100;
-    if (arcEl)   arcEl.setAttribute('stroke-dasharray', `${pct.toFixed(1)} 100`);
-    if (countEl) countEl.textContent = secondsLeft + 's';
-    const color = secondsLeft <= 5 ? '#f59e0b' : '#22c55e';
-    if (arcEl)     arcEl.setAttribute('stroke', color);
-    if (displayEl) displayEl.style.color = color;
-  }
-  tick();
-  _otpTimer = setInterval(tick, 500);
-}
-
-function stopOTPClock() {
-  if (_otpTimer) { clearInterval(_otpTimer); _otpTimer = null; }
-}
+/* ── REMOVED OTP System ─ */
+// OTP functionality has been removed. Teacher login uses password authentication.
 
 function togglePasswordSection() {
   const role    = document.getElementById('user-type')?.value || 'student';
   const section = document.getElementById('passwordSection');
-  const isAdmin = (role === 'admin');
+  const usernameLabel = document.getElementById('usernameLabel');
+  const usernameInput = document.getElementById('username');
+  
+  // Update username label based on role
+  if (usernameLabel) {
+    if (role === 'student') {
+      usernameLabel.textContent = 'Register Number';
+      if (usernameInput) usernameInput.placeholder = 'Enter your register number (e.g., 95132310)6020)';
+    } else {
+      usernameLabel.textContent = 'Username';
+      if (usernameInput) usernameInput.placeholder = 'Enter username';
+    }
+  }
+  
+  const needsPass = (role === 'admin' || role === 'teacher' || role === 'student');
   if (!section) return;
-  if (isAdmin) { section.style.display = ''; }
-  else         { section.style.display = 'none'; }
-}
-
-function toggleOTPSection() {
-  const role     = document.getElementById('user-type')?.value || 'student';
-  const section  = document.getElementById('otpSection');
-  const needsOtp = (role === 'student' || role === 'teacher');
-  if (!section) return;
-  if (needsOtp) { section.style.display = ''; startOTPClock(); }
-  else          { section.style.display = 'none'; stopOTPClock(); }
+  if (needsPass) { 
+    section.style.display = ''; 
+    const label = section.querySelector('label');
+    if (label) {
+      if (role === 'student') {
+        label.innerHTML = '<span><i class="fa fa-calendar"></i> Date of Birth (DDMMYYYY)</span>';
+      } else {
+        label.innerHTML = 'Password';
+      }
+    }
+  }
+  else { section.style.display = 'none'; }
 }
 
 function validateLogin() {
@@ -156,47 +139,227 @@ function validateLogin() {
   const input  = document.getElementById('captcha-input')?.value?.trim()?.toUpperCase();
   const stored = localStorage.getItem('captcha');
 
+  // Validate required fields
   if (!user || !input) { alert('Please fill all fields'); return; }
-  if (role === 'admin' && !pass) { alert('Please enter password'); return; }
-  if (role === 'admin' && pass !== 'jacsiceeceiii') { alert('Invalid Admin Password'); return; }
+  
+  // Admin login requires password verification
+  if (role === 'admin') {
+    if (!pass) { alert('Please enter password'); return; }
+    if (pass !== 'jacsiceeceiii') { alert('Invalid Admin Password'); return; }
+  }
+  
+  // Teacher login requires password verification
+  if (role === 'teacher') {
+    if (!pass) { alert('Please enter password'); return; }
+    if (pass !== 'jacsiceecestaff') { alert('Invalid Teacher Password'); return; }
+  }
+  
+  // Student login requires date of birth (8 digits DDMMYYYY)
+  if (role === 'student') {
+    if (!pass) { alert('Please enter your date of birth (DDMMYYYY)'); return; }
+    if (!/^\d{8}$/.test(pass)) { alert('Date of birth must be 8 digits (DDMMYYYY format)'); return; }
+    
+    // Call async validation for student
+    validateStudentLogin(user, pass, input, stored);
+    return;
+  }
+  
+  // Validate CAPTCHA for admin/teacher
   if (stored && input !== stored) { alert('Invalid CAPTCHA'); return; }
 
-  if (role === 'student' || role === 'teacher') {
-    const otpEntered = document.getElementById('otp-input')?.value?.trim();
-    if (!otpEntered) { alert('Please enter the OTP from Admin Portal'); return; }
-    const currentOtp = generateOTP();
-    if (otpEntered !== currentOtp) {
-      alert('Invalid OTP. Get the current code from the Admin Portal and try again.');
-      document.getElementById('otp-input').value = '';
-      return;
-    }
-  }
-
+  // Set logged user info
   const nameEl    = document.getElementById('loggedUserName');
   const roleEl    = document.getElementById('loggedUserRole');
   const roleLabel = { admin: 'Administrator', teacher: 'Teacher', student: 'Student' };
   if (nameEl) nameEl.textContent = user;
   if (roleEl) roleEl.textContent = roleLabel[role] || role;
 
+  // Store current user info for data filtering
   currentUserRole = role;
+  localStorage.setItem('currentUserRole', role);
+  localStorage.setItem('currentUsername', user);
 
+  // Show add-student nav for admins only
   const addStudentNav = document.querySelector('.nav-link[data-page="add-student"]');
   if (addStudentNav) {
     addStudentNav.closest('li').style.display = role === 'admin' ? '' : 'none';
   }
 
+  // Show attendance nav for teachers and admins only
+  const attendanceNav = document.querySelector('.nav-link[data-page="attendance"]');
+  if (attendanceNav) {
+    attendanceNav.closest('li').style.display = (role === 'teacher' || role === 'admin') ? '' : 'none';
+  }
+
+  // Show app shell and navigate
   document.getElementById('page-login').classList.remove('active');
   document.getElementById('page-login').style.display = 'none';
   document.getElementById('app-shell').style.display  = 'flex';
 
-  if (role === 'admin')        navigate('dashboard');
-  else if (role === 'teacher') navigate('attendance');
-  else                         navigate('home');
+  if (role === 'admin')        navigate('dashboard');    // Admins go to dashboard
+  else if (role === 'teacher') navigate('profiles');     // Teachers go to profiles
+  else                         navigate('home');          // Students go to home
+}
+
+// Async student login validation with database lookup
+async function validateStudentLogin(user, pass, input, stored) {
+  const role = 'student';
+  
+  // Validate CAPTCHA
+  if (stored && input !== stored) { alert('Invalid CAPTCHA'); return; }
+  
+  // Find student by REGISTER NUMBER (username field)
+  const students = await getStudents();
+  console.log('🔍 Total students in database:', students.length);
+  console.log('📝 Searching for register number:', user);
+  console.log('📋 All register numbers in database:', students.map(s => s.registerNumber));
+  
+  const student = students.find(s => 
+    (s.registerNumber || '').toLowerCase() === user.toLowerCase()
+  );
+  
+  if (!student) { 
+    alert('❌ Register number not found in the system'); 
+    console.log('❌ Register number "' + user + '" not found. Check the exact register number in Firebase.');
+    return; 
+  }
+  
+  console.log('✅ Student found:', student.name || student.studentName);
+  console.log('📝 Student name:', student.name || student.studentName);
+  console.log('📅 Raw DOB from database:', student.dateOfBirth);
+  
+  // Get and normalize date of birth from database
+  const dbDOB = (student.dateOfBirth || '').trim();
+  if (!dbDOB) { 
+    alert('❌ Date of birth not set in your record. Please contact administrator.'); 
+    console.log('❌ No DOB set for student:', student.name || student.studentName);
+    return; 
+  }
+  
+  // Convert stored date to DDMMYYYY format for comparison
+  const normalizedDBDOB = normalizeDateOfBirth(dbDOB);
+  console.log('🔄 Raw DOB entered by user:', pass);
+  console.log('🔄 Normalized DOB from database:', normalizedDBDOB);
+  console.log('🔄 Do they match?', pass === normalizedDBDOB);
+  
+  if (pass !== normalizedDBDOB) { 
+    alert('❌ Invalid date of birth. Make sure the format is DDMMYYYY (e.g., 15031990)'); 
+    console.log('❌ DOB mismatch:');
+    console.log('   - You entered: ' + pass);
+    console.log('   - Database has: ' + normalizedDBDOB);
+    document.getElementById('password').value = '';
+    return; 
+  }
+  
+  // Store student reference for later use
+  localStorage.setItem('currentStudentId', student._id || '');
+  
+  console.log('✅ Student login successful!');
+  console.log('✅ Student ID:', student._id);
+  
+  // Set logged user info
+  const nameEl    = document.getElementById('loggedUserName');
+  const roleEl    = document.getElementById('loggedUserRole');
+  const roleLabel = { student: 'Student' };
+  if (nameEl) nameEl.textContent = student.name || student.studentName || user;
+  if (roleEl) roleEl.textContent = roleLabel[role] || role;
+
+  // Store current user info for data filtering
+  currentUserRole = role;
+  localStorage.setItem('currentUserRole', role);
+  localStorage.setItem('currentUsername', student.name || student.studentName || user);
+  localStorage.setItem('currentRegisterNumber', student.registerNumber);
+
+  // Show add-student nav hidden for students
+  const addStudentNav = document.querySelector('.nav-link[data-page="add-student"]');
+  if (addStudentNav) {
+    addStudentNav.closest('li').style.display = 'none';
+  }
+
+  // Show attendance nav for students (they can view Reports and History)
+  const attendanceNav = document.querySelector('.nav-link[data-page="attendance"]');
+  if (attendanceNav) {
+    attendanceNav.closest('li').style.display = '';
+  }
+
+  // Hide dashboard nav for students
+  const dashboardNav = document.querySelector('.nav-link[data-page="dashboard"]');
+  if (dashboardNav) {
+    dashboardNav.closest('li').style.display = 'none';
+  }
+
+  // Show app shell and navigate
+  document.getElementById('page-login').classList.remove('active');
+  document.getElementById('page-login').style.display = 'none';
+  document.getElementById('app-shell').style.display  = 'flex';
+  
+  navigate('home');  // Students go to home
+}
+
+// Helper function to normalize date of birth to DDMMYYYY format
+function normalizeDateOfBirth(dateStr) {
+  if (!dateStr) return '';
+  
+  console.log('🔧 normalizeDateOfBirth input:', dateStr);
+  
+  // Try to match date pattern with separators first (YYYY-MM-DD, DD-MM-YYYY, etc.)
+  const datePattern = /(\d{1,4})[-\/\s.](\d{1,2})[-\/\s.](\d{1,4})/;
+  const match = dateStr.match(datePattern);
+  
+  if (match) {
+    let part1 = match[1];
+    let part2 = match[2];
+    let part3 = match[3];
+    
+    console.log('🔧 Matched pattern: ' + part1 + ' | ' + part2 + ' | ' + part3);
+    
+    let day, month, year;
+    
+    // Detect format by checking which part is 4 digits (year)
+    if (part1.length === 4) {
+      // YYYY-MM-DD format
+      year = part1;
+      month = part2;
+      day = part3;
+      console.log('🔧 Detected YYYY-MM-DD format');
+    } else if (part3.length === 4) {
+      // DD-MM-YYYY or MM-DD-YYYY format
+      // Assume DD-MM-YYYY (day first)
+      day = part1;
+      month = part2;
+      year = part3;
+      console.log('🔧 Detected DD-MM-YYYY format');
+    } else {
+      // YY format - default to DD-MM-YY
+      day = part1;
+      month = part2;
+      year = part3;
+      year = parseInt(year) < 50 ? '20' + year : '19' + year;
+      console.log('🔧 Detected DD-MM-YY format, converted year to:', year);
+    }
+    
+    // Pad day and month with leading zeros
+    day = String(day).padStart(2, '0');
+    month = String(month).padStart(2, '0');
+    
+    const result = day + month + year;
+    console.log('🔧 Normalized to:', result);
+    return result;
+  }
+  
+  // No separator found - check if it's 8 consecutive digits
+  let cleaned = dateStr.replace(/[-\/\s.]/g, '');
+  if (/^\d{8}$/.test(cleaned)) {
+    console.log('🔧 Already in 8-digit format:', cleaned);
+    // Assume it's DDMMYYYY (user input format)
+    return cleaned;
+  }
+  
+  console.log('🔧 Could not parse, returning cleaned value:', cleaned);
+  return cleaned;
 }
 
 function doLogout() {
-  stopOTPClock();
-  stopPortalOTPClock();
   document.getElementById('app-shell').style.display = 'none';
   const login = document.getElementById('page-login');
   login.style.display = '';
@@ -204,84 +367,20 @@ function doLogout() {
   document.getElementById('username').value      = '';
   document.getElementById('password').value      = '';
   document.getElementById('captcha-input').value = '';
-  const otpInput = document.getElementById('otp-input');
-  if (otpInput) otpInput.value = '';
-  const portalOverlay = document.getElementById('adminPortalOverlay');
-  if (portalOverlay) portalOverlay.style.display = 'none';
   const viewOverlay = document.getElementById('viewStudentOverlay');
   if (viewOverlay) viewOverlay.style.display = 'none';
   currentUserRole     = 'student';
   profilesInitialized = false;
   _cachedStudents     = null;
   _cachedAttendance   = null;
+  localStorage.removeItem('currentUserRole');
+  localStorage.removeItem('currentUsername');
+  localStorage.removeItem('currentRegisterNumber');
   generateCaptcha();
 }
 
-/* ── Admin Portal ── */
-function showAdminPortalPrompt() {
-  const box = document.getElementById('adminPortalBox');
-  if (box) {
-    box.style.display = box.style.display === 'none' ? '' : 'none';
-    const err = document.getElementById('adminPortalError');
-    if (err) err.style.display = 'none';
-    const inp = document.getElementById('adminPortalPassword');
-    if (inp) { inp.value = ''; inp.focus(); }
-  }
-}
-
-function verifyAdminPortal() {
-  const inp = document.getElementById('adminPortalPassword');
-  const err = document.getElementById('adminPortalError');
-  if (!inp) return;
-  if (inp.value === 'jacsiceeceiii') {
-    document.getElementById('adminPortalBox').style.display = 'none';
-    inp.value = '';
-    const overlay = document.getElementById('adminPortalOverlay');
-    if (overlay) {
-      // Fetch live student count from Firestore
-      db.collection(STUDENTS_COL).get().then(snap => {
-        const countEl = document.getElementById('portalStudentCount');
-        if (countEl) countEl.textContent = snap.size;
-      }).catch(() => {});
-      overlay.style.display = '';
-      startPortalOTPClock();
-    }
-  } else {
-    if (err) err.style.display = '';
-    inp.value = '';
-    inp.focus();
-  }
-}
-
-/* ── Portal OTP Clock ── */
-let _portalOtpTimer = null;
-
-function startPortalOTPClock() {
-  const displayEl = document.getElementById('portalOtpDisplay');
-  const arcEl     = document.getElementById('portalOtpArc');
-  const countEl   = document.getElementById('portalOtpCount');
-  if (!displayEl) return;
-  const CIRCUMFERENCE = 2 * Math.PI * 18;
-  function tick() {
-    const now      = Date.now();
-    const msInSlot = now % 30000;
-    const secsLeft = Math.ceil((30000 - msInSlot) / 1000);
-    const otp      = generateOTP();
-    displayEl.textContent = otp;
-    const dash = ((30000 - msInSlot) / 30000 * CIRCUMFERENCE).toFixed(1);
-    if (arcEl)   arcEl.setAttribute('stroke-dasharray', `${dash} ${CIRCUMFERENCE}`);
-    if (countEl) countEl.textContent = secsLeft + 's';
-    const color = secsLeft <= 5 ? '#f59e0b' : '#22c55e';
-    if (arcEl)     arcEl.setAttribute('stroke', color);
-    if (displayEl) displayEl.style.color = color;
-  }
-  tick();
-  _portalOtpTimer = setInterval(tick, 500);
-}
-
-function stopPortalOTPClock() {
-  if (_portalOtpTimer) { clearInterval(_portalOtpTimer); _portalOtpTimer = null; }
-}
+/* ── Admin Portal Functions REMOVED ── */
+// All admin portal functionality has been removed from the system.
 
 /* ────────────────────────────────────────────────────────────────
    SECTION 3 — SIDEBAR & DARK MODE
@@ -392,8 +491,22 @@ async function saveStudent(studentData, firestoreId) {
 }
 
 async function deleteStudentById(firestoreId) {
+  // First, delete the student
   await db.collection(STUDENTS_COL).doc(firestoreId).delete();
   _cachedStudents = null;
+  
+  // Get student data to find their register number
+  const allStudents = await getStudents();
+  // Note: student is already deleted, so we fetch attendance by searching
+  // and delete all attendance records for this student
+  const allAttendance = await getAttendanceHistory();
+  const batch = db.batch();
+  
+  // Delete all attendance records (Note: In a real system, you'd get student's registerNumber before deletion)
+  // For now, we'll handle this by cleaning up orphaned records
+  console.log('✅ Student deleted. Associated attendance records can be cleaned up.');
+  
+  _cachedAttendance = null;
 }
 
 async function clearAllStudents() {
@@ -452,18 +565,31 @@ async function initHome() {
   const statAtt      = document.getElementById('homeStatAttendance');
 
   const scholarKeys  = ['firstGraduate','pmss','mbcBc','dncBcmDnt','scholarship75','pudhumaiPenn','tamilPulhalwan','centralScholarship'];
-  const scholarCount = students.filter(s => scholarKeys.some(k => String(s[k]||'').toLowerCase() === 'yes')).length;
 
-  if (statStudents) statStudents.textContent = students.length;
-  if (statScholar)  statScholar.textContent  = scholarCount;
-
-  if (statAtt && hist.length) {
-    const total   = hist.length;
-    const present = hist.filter(r => r.status === 'present').length
-                  + hist.filter(r => r.status === 'halfday').length * 0.5;
-    statAtt.textContent = Math.round((present / total) * 100) + '%';
-  } else if (statAtt) {
-    statAtt.textContent = '—';
+  if (currentUserRole === 'student') {
+    // Student sees their own stats only
+    const myRegNum = (localStorage.getItem('currentRegisterNumber') || '').toLowerCase();
+    const me = students.find(s => (s.registerNumber || '').toLowerCase() === myRegNum);
+    const myHist = hist.filter(r => (r.registerNumber || '').toLowerCase() === myRegNum);
+    if (statStudents) { statStudents.textContent = '1'; statStudents.closest('.home-stat-card')?.querySelector('.stat-label')?.setAttribute('data-orig', statStudents.closest('.home-stat-card')?.querySelector('.stat-label')?.textContent); if (statStudents.closest('.home-stat-card')?.querySelector('.stat-label')) statStudents.closest('.home-stat-card').querySelector('.stat-label').textContent = 'My Profile'; }
+    const hasScholar = me ? scholarKeys.some(k => String(me[k]||'').toLowerCase() === 'yes') : false;
+    if (statScholar) { statScholar.textContent = hasScholar ? 'Yes' : 'No'; if (statScholar.closest('.home-stat-card')?.querySelector('.stat-label')) statScholar.closest('.home-stat-card').querySelector('.stat-label').textContent = 'Scholarship'; }
+    if (statAtt && myHist.length) {
+      const score = myHist.reduce((acc, r) => acc + (r.status === 'present' ? 1 : r.status === 'halfday' ? 0.5 : 0), 0);
+      statAtt.textContent = Math.round((score / myHist.length) * 100) + '%';
+    } else if (statAtt) { statAtt.textContent = '—'; }
+  } else {
+    const scholarCount = students.filter(s => scholarKeys.some(k => String(s[k]||'').toLowerCase() === 'yes')).length;
+    if (statStudents) statStudents.textContent = students.length;
+    if (statScholar)  statScholar.textContent  = scholarCount;
+    if (statAtt && hist.length) {
+      const total   = hist.length;
+      const present = hist.filter(r => r.status === 'present').length
+                    + hist.filter(r => r.status === 'halfday').length * 0.5;
+      statAtt.textContent = Math.round((present / total) * 100) + '%';
+    } else if (statAtt) {
+      statAtt.textContent = '—';
+    }
   }
 }
 
@@ -582,7 +708,18 @@ async function initAttendancePage() {
   if (dateEl)     dateEl.textContent = new Date().toLocaleDateString();
   if (histDateEl && !histDateEl.value) histDateEl.valueAsDate = new Date();
   await updateQuickStats();
-  showAttSection('homeSection');
+
+  // For students: hide "Take Attendance" tab, show only Reports and History
+  const attNavBtns = document.querySelectorAll('.att-nav-btn');
+  if (currentUserRole === 'student') {
+    // attNavBtns[0] = Home, [1] = Take Attendance, [2] = Reports, [3] = History
+    if (attNavBtns[1]) attNavBtns[1].style.display = 'none';
+    // Auto-navigate to Reports for students
+    showAttSection('reportsSection');
+  } else {
+    if (attNavBtns[1]) attNavBtns[1].style.display = '';
+    showAttSection('homeSection');
+  }
 }
 
 function showAttSection(id) {
@@ -731,8 +868,14 @@ async function generateReport() {
   showLoader('Generating report…');
   const [students, history] = await Promise.all([getStudents(), getAttendanceHistory()]);
   hideLoader();
+
+  // For student role: only show their own record
+  const myRegNum = currentUserRole === 'student' ? (localStorage.getItem('currentRegisterNumber') || '').toLowerCase() : null;
+
   let found = 0;
   students.forEach(s => {
+    // Student sees only their own row
+    if (myRegNum && (s.registerNumber || '').toLowerCase() !== myRegNum) return;
     const isEce      = s.ugDepartment === 'ECE' || s.pgDepartment === 'ECE' || s.department === 'ECE';
     const batchMatch = !batch || s.ugBatch === batch || s.pgBatch === batch || s.batch === batch || s.Batch === batch;
     if (!isEce || !batchMatch) return;
@@ -744,7 +887,8 @@ async function generateReport() {
     } else {
       pct = Math.floor(Math.random() * 30) + 60;
     }
-    if (pct < threshold) {
+    // For student: always show their row regardless of threshold
+    if (myRegNum || pct < threshold) {
       found++;
       const row = document.createElement('tr');
       row.innerHTML = `
@@ -752,12 +896,12 @@ async function generateReport() {
         <td>${escapeHtml(s.name||s.studentName)}</td>
         <td>ECE</td>
         <td>${escapeHtml(s.ugBatch||s.pgBatch||s.batch||s.Batch)}</td>
-        <td><strong style="color:${pct < 65 ? 'var(--rose)' : 'var(--amber)'}">${pct}%</strong></td>
-        <td><span class="status-pill" style="background:${pct < 65 ? 'var(--rose-soft)' : 'var(--amber-soft)'};color:${pct < 65 ? 'var(--rose)' : 'var(--amber)'}">${pct < 65 ? 'Critical' : 'Warning'}</span></td>`;
+        <td><strong style="color:${pct < 65 ? 'var(--rose)' : pct < threshold ? 'var(--amber)' : 'var(--green)'}">${pct}%</strong></td>
+        <td><span class="status-pill" style="background:${pct < 65 ? 'var(--rose-soft)' : pct < threshold ? 'var(--amber-soft)' : 'var(--green-soft)'};color:${pct < 65 ? 'var(--rose)' : pct < threshold ? 'var(--amber)' : 'var(--green)'}">${pct < 65 ? 'Critical' : pct < threshold ? 'Warning' : 'Good'}</span></td>`;
       tbody.appendChild(row);
     }
   });
-  if (!found) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#888">No students below the threshold</td></tr>';
+  if (!found) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#888">No attendance records found</td></tr>';
 }
 
 async function loadAttendanceHistory() {
@@ -768,7 +912,15 @@ async function loadAttendanceHistory() {
   tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#888"><i class="fa fa-spinner fa-spin"></i> Loading from Firebase…</td></tr>';
   const history  = await getAttendanceHistory();
   tbody.innerHTML = '';
-  const filtered = history.filter(r => (!date || r.date === date) && (!batch || r.batch === batch));
+
+  // For student role: filter to only their own records
+  const myRegNum = currentUserRole === 'student' ? (localStorage.getItem('currentRegisterNumber') || '').toLowerCase() : null;
+
+  let filtered = history.filter(r => (!date || r.date === date) && (!batch || r.batch === batch));
+  if (myRegNum) {
+    filtered = filtered.filter(r => (r.registerNumber || '').toLowerCase() === myRegNum);
+  }
+
   if (!filtered.length) {
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#888">No attendance records found</td></tr>';
     return;
@@ -850,7 +1002,10 @@ function initProfileFilters() {
     addBtn.addEventListener('click', () => navigate('add-student'));
   }
   const downloadBtn = document.getElementById('downloadReport');
-  if (downloadBtn) downloadBtn.addEventListener('click', e => { e.preventDefault(); exportFilteredStudentsCSV(lastFiltered); });
+  if (downloadBtn) {
+    downloadBtn.style.display = (currentUserRole === 'teacher' || currentUserRole === 'admin') ? '' : 'none';
+    downloadBtn.addEventListener('click', e => { e.preventDefault(); exportFilteredStudentsCSV(lastFiltered); });
+  }
   const applyBtn  = document.getElementById('applyBtn');
   if (applyBtn)   applyBtn.addEventListener('click', filterStudents);
   const clearBtn  = document.getElementById('clearFiltersBtn');
@@ -870,11 +1025,24 @@ async function renderStudentTable(studentsArg) {
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:#888"><i class="fa fa-spinner fa-spin"></i> Loading from Firebase…</td></tr>';
 
-  const students = studentsArg !== undefined ? studentsArg : await getStudents();
+  let students = studentsArg !== undefined ? studentsArg : await getStudents();
+  
+  // STUDENT ROLE: Show only their own profile (matched by register number)
+  if (currentUserRole === 'student') {
+    const currentRegisterNumber = localStorage.getItem('currentRegisterNumber');
+    students = students.filter(s => 
+      (s.registerNumber || '').toLowerCase() === (currentRegisterNumber || '').toLowerCase()
+    );
+  }
+  // ADMIN & TEACHER: Can see all students
+  
   lastFiltered   = students.slice();
 
   if (!students.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:#888">No students found. <a href="#" onclick="navigate(\'add-student\');return false;" style="color:var(--accent);">Add a student →</a></td></tr>';
+    const msg = currentUserRole === 'student' 
+      ? 'Your profile not found in the system.'
+      : 'No students found. <a href="#" onclick="navigate(\'add-student\');return false;" style="color:var(--accent);">Add a student →</a>';
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#888">${msg}</td></tr>`;
     return;
   }
 
@@ -899,6 +1067,8 @@ async function renderStudentTable(studentsArg) {
         ${currentUserRole === 'admin' ? `
           <button class="act-btn" onclick="editStudent(${i})" title="Edit"><i class="fa fa-pen"></i></button>
           <button class="act-btn danger" onclick="deleteStudent(${i})" title="Delete"><i class="fa fa-trash"></i></button>` : ''}
+        ${currentUserRole === 'student' ? `<button class="act-btn" onclick="downloadStudentPDF(${i})" title="Download PDF"><i class="fa fa-download"></i></button>` : ''}
+        ${currentUserRole === 'teacher' ? `<button class="act-btn" onclick="downloadStudentPDF(${i})" title="Download PDF"><i class="fa fa-download"></i></button>` : ''}
       </td>`;
     tbody.appendChild(row);
   });
@@ -908,13 +1078,22 @@ async function filterStudents() {
   const query   = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
   const checked = [...document.querySelectorAll('.filter-options input[type="checkbox"]:checked')].map(cb => cb.value);
   let students  = await getStudents();
-  if (query) {
+  
+  // STUDENT ROLE: Only show own profile (filter by register number)
+  if (currentUserRole === 'student') {
+    const currentRegisterNumber = localStorage.getItem('currentRegisterNumber');
+    students = students.filter(s => 
+      (s.registerNumber || '').toLowerCase() === (currentRegisterNumber || '').toLowerCase()
+    );
+  } else if (query && (currentUserRole === 'teacher' || currentUserRole === 'admin')) {
+    // TEACHER & ADMIN ROLE: Can search across all students
     students = students.filter(s => {
       return (s.name||s.studentName||'').toLowerCase().includes(query)
           || (s.registerNumber||'').toLowerCase().includes(query)
           || (s.studentEmail||'').toLowerCase().includes(query);
     });
   }
+  
   if (checked.length) {
     students = students.filter(s => checked.every(token => {
       const map = scholarTokenMap[token];
@@ -929,8 +1108,7 @@ async function filterStudents() {
 
 async function editStudent(tableIdx) {
   if (currentUserRole !== 'admin') { alert('Only administrators can edit student records.'); return; }
-  const students = await getStudents();
-  const s        = students[tableIdx];
+  const s = lastFiltered[tableIdx];
   if (!s) return;
   navigate('add-student', { edit: true });
   setTimeout(() => {
@@ -944,24 +1122,62 @@ async function editStudent(tableIdx) {
 
 async function deleteStudent(tableIdx) {
   if (currentUserRole !== 'admin') { alert('Only administrators can delete student records.'); return; }
-  if (!confirm('Delete this student? This cannot be undone.')) return;
-  const students = await getStudents();
-  const s        = students[tableIdx];
+  const s = lastFiltered[tableIdx];
   if (!s || !s._id) return;
-  showLoader('Deleting student from Firebase…');
+  
+  const confirmMsg = `⚠️ DELETE STUDENT: ${s.name || s.studentName}\n\nThis will permanently delete:\n✓ Student record\n✓ All attendance history\n✓ All reports\n\nThis cannot be undone!\n\nProceed?`;
+  
+  if (!confirm(confirmMsg)) return;
+  
+  showLoader('Deleting student and attendance records from Firebase…');
   try {
+    const registerNumber = s.registerNumber;
+    
+    // Delete all attendance records for this student
+    if (registerNumber) {
+      const allAttendance = await getAttendanceHistory();
+      const batch = db.batch();
+      let deletedCount = 0;
+      
+      allAttendance.forEach(rec => {
+        if (rec.registerNumber === registerNumber) {
+          batch.delete(db.collection(ATTENDANCE_COL).doc(rec._id));
+          deletedCount++;
+        }
+      });
+      
+      if (deletedCount > 0) {
+        await batch.commit();
+        console.log('🗑️ Deleted ' + deletedCount + ' attendance records for student');
+      }
+    }
+    
+    // Delete the student record
     await deleteStudentById(s._id);
+    
     hideLoader();
+    alert('✅ Student and all associated records deleted successfully!\n\n📊 Deleted:\n• Student profile\n• ' + (s.registerNumber ? 'Attendance history' : 'No attendance records') + '\n• Reports');
     renderStudentTable();
   } catch (e) {
     hideLoader();
     alert('❌ Error deleting student: ' + e.message);
+    console.error(e);
   }
 }
 
+async function downloadStudentPDF(tableIdx) {
+  // Use lastFiltered so the correct (already-filtered) student is used
+  const s = lastFiltered[tableIdx];
+  if (!s) return;
+  // Open the view overlay first so printStudentView has content to print
+  await viewStudent(tableIdx);
+  // Then print/download
+  printStudentView();
+}
+
 async function viewStudent(tableIdx) {
-  const students = await getStudents();
-  const s        = students[tableIdx];
+  // Use lastFiltered so the correct (already-filtered) student is shown
+  const s = lastFiltered[tableIdx];
   if (!s) return;
   const overlay  = document.getElementById('viewStudentOverlay');
   const content  = document.getElementById('viewStudentContent');
@@ -974,6 +1190,12 @@ async function viewStudent(tableIdx) {
   window.currentViewRole = currentUserRole;
   const T   = v => (v == null || v === '') ? 'N/A' : String(v);
   const row = (label, val) => `<div class="vp-row"><span class="vp-label">${label}</span><span class="vp-val">${escapeHtml(T(val))}</span></div>`;
+  
+  // Hide sensitive fields for student role
+  const showMobileNumber = currentUserRole !== 'student';
+  const showAadhaar = currentUserRole !== 'student';
+  const showParentContact = currentUserRole !== 'student';
+  
   const photoHtml = s.photo
     ? `<img src="${s.photo}" alt="Photo" style="width:100px;height:130px;object-fit:cover;border-radius:8px;border:2px solid #e2e8f0;float:right;">`
     : '';
@@ -985,8 +1207,8 @@ async function viewStudent(tableIdx) {
     </div>
     <div class="vp-section"><div class="vp-section-title"><i class="fa fa-user"></i> Personal Information</div><div class="vp-grid">
       ${row('Student Name',s.name||s.studentName)}${row('Register Number',s.registerNumber)}
-      ${row('Date of Birth',s.dateOfBirth)}${row('Aadhaar Number',s.aadhaarNumber)}
-      ${row('Email ID',s.studentEmail)}${row('Mobile Number',s.mobileNumber)}
+      ${row('Date of Birth',s.dateOfBirth)}${showAadhaar ? row('Aadhaar Number',s.aadhaarNumber) : ''}
+      ${row('Email ID',s.studentEmail)}${showMobileNumber ? row('Mobile Number',s.mobileNumber) : ''}
       ${row('Blood Group',s.bloodGroup)}${row('Gender',s.gender)}
       ${row('Community',s.community)}${row('Caste',s.caste)}
       ${row('Religion',s.religion)}${row('Languages',s.languages)}
@@ -1005,7 +1227,7 @@ async function viewStudent(tableIdx) {
     <div class="vp-section"><div class="vp-section-title"><i class="fa fa-people-roof"></i> Parents Information</div><div class="vp-grid">
       ${row("Father's Name",s.fatherName)}${row("Father's Occupation",s.fatherOccupation)}
       ${row("Mother's Name",s.motherName)}${row("Mother's Occupation",s.motherOccupation)}
-      ${row('Parents Contact',s.parentsContactNumber)}${row('Annual Income',s.annualIncome)}
+      ${showParentContact ? row('Parents Contact',s.parentsContactNumber) : ''}${row('Annual Income',s.annualIncome)}
       ${row('Number of Siblings',s.siblings)}
     </div></div>
     <div class="vp-section"><div class="vp-section-title"><i class="fa fa-building-columns"></i> Bank Account Details</div><div class="vp-grid">
