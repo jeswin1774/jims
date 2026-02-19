@@ -906,33 +906,189 @@ input[type="radio"] { transform: scale(1.2); cursor: pointer; accent-color: var(
 /* ═══════════════════════════════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════════════════════════════ */
-@media (max-width: 900px) {
-  .kpi-grid { grid-template-columns: repeat(2,1fr); }
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE — TABLET (≤ 1024px)
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .panels-grid { grid-template-columns: 1fr; }
   .full-panel { grid-column: span 1; }
   .home-content-grid { grid-template-columns: 1fr; }
   .home-card:last-child { grid-column: span 1; }
+  .dash-content { gap: 16px; }
 }
 
-@media (max-width: 768px) {
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE — TABLET PORTRAIT (≤ 900px)
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
   aside#sidebar { width: var(--sidebar-c); }
   .brand-name, .item-name, .sidebar-section-label { display: none; }
   .main-wrapper { margin-left: var(--sidebar-c) !important; }
   .menu-btn { display: none; }
+  body.collapsed aside#sidebar { width: var(--sidebar-c); }
+
   .inner-page { padding: 16px; }
-  .kpi-grid { grid-template-columns: 1fr 1fr; }
-  .form-grid { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .home-stats-row { flex-direction: row; flex-wrap: wrap; gap: 10px; }
+  .home-stat-card { flex: 1 1 calc(33% - 10px); min-width: 90px; }
+
+  /* Topbar */
+  .topbar { padding: 12px 16px; }
+  .topbar-left h1 { font-size: 1.1rem; }
+  .topbar-search input { width: 130px; }
+
+  /* Profiles toolbar */
+  .profiles-toolbar { flex-wrap: wrap; gap: 8px; }
+  .search-wrapper { flex: 1 1 100%; max-width: 100%; }
+
+  /* Attendance nav */
+  .att-nav { flex-wrap: wrap; gap: 6px; }
+  .att-nav-btn { flex: 1 1 calc(50% - 6px); font-size: 0.8rem; padding: 8px 10px; }
+
+  /* Forms */
   .form-grid.cols-3 { grid-template-columns: 1fr 1fr; }
-  .form-group.col-span-2, .form-group.col-span-3 { grid-column: span 1; }
-  .home-stats-row { flex-direction: column; }
-  .topbar-search input { width: 100px; }
+  .step-nav { overflow-x: auto; flex-wrap: nowrap; }
 }
 
-@media (max-width: 480px) {
-  .kpi-grid { grid-template-columns: 1fr; }
-  .topbar { padding: 12px 14px; }
-  .step-nav { flex-direction: column; }
-  .photo-upload-area { flex-direction: column; }
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE — MOBILE (≤ 600px)
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 600px) {
+  /* Sidebar — icon-only strip */
+  aside#sidebar {
+    width: 52px;
+    padding-bottom: 12px;
+  }
+  .brand-name, .item-name, .sidebar-section-label, .user-info { display: none; }
+  .main-wrapper { margin-left: 52px !important; }
+  .menu-btn { display: none; }
+  .logo-wrapper { padding: 14px 8px 12px; gap: 0; justify-content: center; }
+  .logo-icon { width: 32px; height: 32px; font-size: 1rem; }
+  .menu-items { padding: 0 6px; }
+  .menu-items a { padding: 10px 6px; justify-content: center; gap: 0; border-radius: 8px; }
+  .icon { font-size: 1rem; width: auto; }
+  .sidebar-footer { padding: 10px 6px 0; }
+  .sidebar-user { justify-content: center; padding: 8px 6px; background: none; }
+  .user-avatar { width: 28px; height: 28px; font-size: 0.75rem; }
+
+  /* Topbar */
+  .topbar { padding: 10px 12px; gap: 8px; flex-wrap: wrap; }
+  .topbar-left { flex: 1; min-width: 0; }
+  .topbar-left h1 { font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .breadcrumb { font-size: 0.65rem; }
+  .topbar-right { gap: 6px; }
+  .topbar-search { display: none; } /* hide search bar, use profile toolbar search instead */
+  .icon-btn { width: 34px; height: 34px; font-size: 0.85rem; }
+
+  /* Inner pages */
+  .inner-page { padding: 10px; }
+
+  /* KPI cards */
+  .kpi-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .kpi-card { padding: 12px 10px; }
+  .kpi-val { font-size: 1.6rem; }
+  .kpi-label { font-size: 0.65rem; }
+  .kpi-delta { font-size: 0.65rem; }
+  .kpi-icon { width: 36px; height: 36px; font-size: 1rem; }
+
+  /* Home hero */
+  .home-hero { padding: 16px 12px; border-radius: 12px; }
+  .home-hero h2 { font-size: 1.2rem; }
+  .home-hero-text p { font-size: 0.78rem; }
+  .home-stats-row { flex-direction: row; flex-wrap: wrap; gap: 8px; }
+  .home-stat-card { flex: 1 1 calc(33% - 8px); min-width: 70px; padding: 12px 8px; border-radius: 10px; }
+  .stat-val { font-size: 1.3rem; }
+  .stat-label { font-size: 0.6rem; }
+  .home-content-grid { gap: 10px; }
+  .home-card { padding: 14px 12px; border-radius: 10px; }
+  .home-card h3 { font-size: 0.9rem; }
+  .home-card p, .home-prog-list li { font-size: 0.78rem; }
+  .quick-actions { gap: 8px; }
+  .action-btn { padding: 8px 12px; font-size: 0.75rem; border-radius: 8px; }
+
+  /* Dashboard panels */
+  .panels-grid { gap: 8px; }
+  .panel { border-radius: 10px; }
+  .panel-header { padding: 12px 14px; }
+  .panel-title { font-size: 0.85rem; }
+
+  /* Data table — horizontal scroll */
+  .table-scroll, #attendanceTableContainer { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .data-table { font-size: 0.72rem; min-width: 480px; }
+  .data-table th, .data-table td { padding: 7px 6px; white-space: nowrap; }
+  .student-thumb { width: 26px; height: 26px; font-size: 0.7rem; }
+  .td-name { font-size: 0.78rem; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
+  .action-cell { display: flex; gap: 3px; }
+  .act-btn { padding: 5px 7px; font-size: 0.7rem; }
+
+  /* Profiles toolbar */
+  .profiles-toolbar { flex-direction: column; gap: 8px; }
+  .search-wrapper { max-width: 100%; width: 100%; }
+  .header-btn { font-size: 0.75rem; padding: 8px 12px; flex: 1; text-align: center; }
+
+  /* Filters */
+  .filters-row { flex-direction: column; gap: 6px; }
+  .filter-btn { width: 100%; text-align: left; }
+  .filter-options { position: static; width: 100%; box-shadow: none; border: 1px solid var(--border); }
+
+  /* Attendance nav */
+  .att-nav { gap: 6px; flex-wrap: wrap; }
+  .att-nav-btn { flex: 1 1 calc(50% - 6px); font-size: 0.75rem; padding: 8px 6px; border-radius: 8px; }
+
+  /* Attendance filter row */
+  .filter-container { flex-direction: column; gap: 8px; }
+  .filter-container select, .filter-container input[type="date"] { width: 100%; font-size: 0.82rem; }
+
+  /* Attendance table */
+  #attendanceTable, #reportTable, #historyTable { font-size: 0.7rem; min-width: 520px; }
+  #attendanceTable th, #attendanceTable td,
+  #reportTable th, #reportTable td,
+  #historyTable th, #historyTable td { padding: 6px 5px; }
+  .attendance-actions { flex-wrap: wrap; gap: 6px; }
+  .attendance-actions button { flex: 1 1 calc(50% - 6px); font-size: 0.75rem; padding: 8px 6px; }
+
+  /* Forms */
+  .form-grid { grid-template-columns: 1fr; }
+  .form-grid.cols-3 { grid-template-columns: 1fr; }
+  .form-group.col-span-2, .form-group.col-span-3 { grid-column: span 1; }
+  .form-card { border-radius: 10px; margin-bottom: 12px; }
+  .form-card-header { padding: 12px 14px; gap: 8px; }
+  .form-card-header h2 { font-size: 0.9rem; }
+  .form-card-body { padding: 14px; }
+  .form-group label { font-size: 0.72rem; }
+  .form-group input, .form-group select, .form-group textarea { font-size: 0.82rem; padding: 7px 10px; }
+  .photo-upload-area { flex-direction: column; align-items: center; gap: 12px; }
+  .photo-info { font-size: 0.75rem; }
+  .step-nav { overflow-x: auto; flex-wrap: nowrap; gap: 4px; padding-bottom: 4px; }
+  .step-item { min-width: 60px; font-size: 0.65rem; }
+  .form-actions { padding: 12px 14px; flex-direction: column; gap: 8px; }
+  .form-actions-right { flex-wrap: wrap; gap: 6px; }
+  .btn { font-size: 0.78rem; padding: 8px 14px; }
+
+  /* View student modal */
+  #viewStudentOverlay { padding: 8px; }
+  #viewStudentOverlay > div { margin: 8px auto; max-width: 100%; border-radius: 12px; }
+  #viewStudentOverlay > div > div:first-child { flex-wrap: wrap; gap: 8px; padding: 14px 12px; }
+  #viewStudentOverlay > div > div:first-child h2 { font-size: 0.95rem; flex: 1 1 100%; }
+  #viewStudentOverlay > div > div:first-child button { flex: 1; font-size: 0.72rem; padding: 8px 10px; }
+  #viewStudentContent { padding: 14px 12px; }
+  .vp-grid { grid-template-columns: 1fr; gap: 0; }
+  .vp-section { margin-bottom: 10px; border-radius: 8px; }
+  .vp-section-title { padding: 8px 12px; font-size: 0.78rem; }
+  .vp-label { font-size: 0.63rem; }
+  .vp-val { font-size: 0.78rem; }
+
+  /* Login page */
+  .login-container { padding: 24px 18px; border-radius: 16px; margin: 12px; }
+  .login-logo { margin-bottom: 16px; }
+  .login-brand { font-size: 1.3rem; }
+  .login-container h2 { font-size: 1.3rem; }
+  .login-sub { font-size: 0.75rem; }
+  .login-container label { font-size: 0.78rem; }
+  .login-container input, .login-container select { font-size: 0.85rem; padding: 9px 12px; }
+  .login-btn { font-size: 0.9rem; padding: 11px; }
+  .captcha-container { flex-direction: row; gap: 8px; }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -969,13 +1125,13 @@ input[type="radio"] { transform: scale(1.2); cursor: pointer; accent-color: var(
 .vp-label {
   font-size: 0.72rem;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: #6b7280;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 .vp-val {
   font-size: 0.88rem;
-  color: var(--text-primary);
+  color: #1f2937;
   font-weight: 500;
 }
 
