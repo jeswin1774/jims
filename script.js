@@ -6,6 +6,11 @@
 
 'use strict';
 
+export const metadata = {
+  title: "JACSICE ECE Student Portal",
+  description: "Official JACSICE ECE student portal for managing student information, academic records, attendance, and departmental updates."
+};
+
 /* ────────────────────────────────────────────────────────────────
    FIREBASE INIT
    ──────────────────────────────────────────────────────────────── */
