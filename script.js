@@ -52,6 +52,12 @@ function navigate(page, opts = {}) {
     return;
   }
 
+  // Only admins can access dashboard
+  if (page === 'dashboard' && currentUserRole !== 'admin') {
+    alert('Only administrators can access the dashboard.');
+    return;
+  }
+
   // Students can access attendance page but only for Reports and History (handled in initAttendancePage)
 
   PAGES.forEach(p => {
