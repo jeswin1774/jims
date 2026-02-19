@@ -32,18 +32,18 @@
     <p class="login-sub">JACSICE Information Management System</p>
 
     <label for="user-type">Select Role</label>
-    <select id="user-type" aria-label="Select user role">
+    <select id="user-type" aria-label="Select user role" onchange="togglePasswordSection()">
       <option value="student">Student Login</option>
       <option value="teacher">Teacher Login</option>
       <option value="admin">Administrator Login</option>
     </select>
 
-    <label for="username">Username</label>
-    <input type="text" id="username" placeholder="Enter Username" required />
+    <label for="username" id="usernameLabel">Username</label>
+    <input type="text" id="username" placeholder="Enter Username (or Student Name)" required />
 
-    <div id="passwordSection">
+    <div id="passwordSection" style="display:none;">
       <label for="password">Password</label>
-      <input type="password" id="password" placeholder="Enter Password" required />
+      <input type="text" id="password" placeholder="Enter Password (or DDMMYYYY for students)" required />
     </div>
 
     <label for="captcha-input">Enter CAPTCHA</label>
@@ -53,32 +53,9 @@
     </div>
     <input type="text" id="captcha-input" placeholder="Enter CAPTCHA" required />
 
-    <!-- OTP Section — shown only for Student / Teacher (code is displayed in Admin Portal) -->
-    <div id="otpSection" style="display:none; margin-top:14px;">
-      <label style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-        <span><i class="fa fa-shield-halved" style="color:#22c55e;"></i> One-Time Password (OTP)</span>
-        <span style="font-size:0.75rem; color:#aaa;">Get code from Admin Portal</span>
-      </label>
-      <div style="background:rgba(34,197,94,0.07); border:1px solid rgba(34,197,94,0.25); border-radius:10px; padding:10px 14px; margin-bottom:8px; font-size:0.8rem; color:#86efac;">
-        <i class="fa fa-circle-info"></i> Ask your administrator for the current 6-digit OTP. It refreshes every 30 seconds.
-      </div>
-      <input type="text" id="otp-input" placeholder="Enter 6-digit OTP from administrator" maxlength="6"
-             style="letter-spacing:4px; font-family:'DM Mono',monospace; font-size:1.1rem; text-align:center;" />
-    </div>
+
 
     <button class="login-btn" onclick="validateLogin()">Login →</button>
-    <button class="login-btn secondary" onclick="showAdminPortalPrompt()" style="margin-top:8px;"><i class="fa fa-shield"></i> Admin Portal</button>
-
-    <!-- Admin Portal Password Box -->
-    <div id="adminPortalBox" style="display:none; margin-top:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:10px; padding:16px;">
-      <label style="color:#ccc; font-size:0.85rem; display:block; margin-bottom:6px;"><i class="fa fa-shield-halved" style="color:#22c55e;"></i> Admin Portal Access</label>
-      <div style="display:flex; gap:8px; align-items:center;">
-        <input type="password" id="adminPortalPassword" placeholder="Enter admin portal password" style="flex:1; padding:9px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(0,0,0,0.3); color:#fff; font-size:0.9rem;" onkeydown="if(event.key==='Enter') verifyAdminPortal()">
-        <button type="button" onclick="verifyAdminPortal()" style="padding:9px 16px; background:#22c55e; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:0.85rem; white-space:nowrap;"><i class="fa fa-arrow-right"></i> Enter</button>
-        <button type="button" onclick="document.getElementById('adminPortalBox').style.display='none'" style="padding:9px 12px; background:rgba(255,255,255,0.1); color:#ccc; border:none; border-radius:8px; cursor:pointer; font-size:0.85rem;"><i class="fa fa-xmark"></i></button>
-      </div>
-      <p id="adminPortalError" style="display:none; color:#f87171; font-size:0.8rem; margin-top:6px;"><i class="fa fa-circle-exclamation"></i> Incorrect password</p>
-    </div>
   </div>
 </div>
 
@@ -740,81 +717,6 @@
 
   </div><!-- /.main-wrapper -->
 </div><!-- /#app-shell -->
-
-<!-- ═══════════════════════════════════════════════════════
-     ADMIN PORTAL PAGE (overlay modal style)
-     ═══════════════════════════════════════════════════════ -->
-<div id="adminPortalOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; overflow-y:auto;">
-  <div style="max-width:680px; margin:40px auto; background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.4);">
-    <div style="background:linear-gradient(135deg,#1e3c72,#16a34a); padding:28px 32px; color:#fff;">
-      <div style="display:flex; align-items:center; gap:14px;">
-        <div style="width:48px;height:48px;background:rgba(255,255,255,0.15);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;"><i class="fa fa-shield-halved"></i></div>
-        <div>
-          <h1 style="font-size:1.4rem; font-weight:700; margin:0;">Admin Portal</h1>
-          <p style="opacity:0.8; font-size:0.85rem; margin:0;">JIMS System Administration</p>
-        </div>
-        <button onclick="stopPortalOTPClock(); document.getElementById('adminPortalOverlay').style.display='none'" style="margin-left:auto; background:rgba(255,255,255,0.15); border:none; color:#fff; width:36px; height:36px; border-radius:8px; cursor:pointer; font-size:1rem;"><i class="fa fa-xmark"></i></button>
-      </div>
-    </div>
-    <div style="padding:28px 32px;">
-
-      <!-- Live OTP Display for Student & Teacher Login -->
-      <div style="background:linear-gradient(135deg,#052e16,#14532d); border:1px solid #16a34a; border-radius:14px; padding:20px 24px; margin-bottom:20px;">
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
-          <div style="width:36px;height:36px;background:rgba(34,197,94,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem;color:#22c55e;"><i class="fa fa-key"></i></div>
-          <div>
-            <h3 style="color:#4ade80; margin:0; font-size:0.95rem; font-weight:700;">Current Login OTP</h3>
-            <p style="color:#86efac; font-size:0.75rem; margin:0;">Share this code with students &amp; teachers — refreshes every 30 seconds</p>
-          </div>
-        </div>
-        <!-- OTP Code + Timer Row -->
-        <div style="display:flex; align-items:center; gap:16px; background:rgba(0,0,0,0.35); border-radius:12px; padding:14px 18px;">
-          <span id="portalOtpDisplay" style="font-family:'DM Mono',monospace; font-size:2.4rem; font-weight:700; color:#22c55e; letter-spacing:10px; flex:1;">------</span>
-          <!-- Circular countdown -->
-          <div style="text-align:center; flex-shrink:0;">
-            <svg id="portalOtpSvg" viewBox="0 0 44 44" width="52" height="52" style="transform:rotate(-90deg); display:block;">
-              <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="4"/>
-              <circle id="portalOtpArc" cx="22" cy="22" r="18" fill="none" stroke="#22c55e" stroke-width="4"
-                stroke-dasharray="113 113" stroke-linecap="round"/>
-            </svg>
-            <div id="portalOtpCount" style="font-size:0.72rem; color:#86efac; margin-top:4px; font-weight:600;">30s</div>
-          </div>
-        </div>
-        <p style="color:#86efac; font-size:0.76rem; margin-top:10px; margin-bottom:0;"><i class="fa fa-triangle-exclamation" style="color:#fbbf24;"></i> Administrator login does <strong style="color:#fff;">not</strong> require OTP — only Student &amp; Teacher logins do.</p>
-      </div>
-
-      <!-- Students Management Summary -->
-      <div style="background:#eff6ff; border:1px solid #93c5fd; border-radius:12px; padding:18px; margin-bottom:20px;">
-        <h3 style="color:#1d4ed8; margin-bottom:10px; font-size:0.95rem;"><i class="fa fa-users"></i> Student Records</h3>
-        <p style="font-size:0.88rem; color:#1e3a8a;">Total Students: <strong id="portalStudentCount">0</strong> &nbsp;|&nbsp; Only Administrator can add, edit, or delete student records.</p>
-      </div>
-
-      <!-- System Settings -->
-      <div style="background:#fafafa; border:1px solid #e5e7eb; border-radius:12px; padding:18px; margin-bottom:20px;">
-        <h3 style="margin-bottom:14px; font-size:0.95rem; color:#374151;"><i class="fa fa-cog"></i> System Settings</h3>
-        <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f0f0f0;">
-          <div>
-            <p style="font-weight:600; font-size:0.88rem; color:#111;">Dark Mode</p>
-            <p style="font-size:0.78rem; color:#888;">Toggle application dark theme</p>
-          </div>
-          <button onclick="document.getElementById('toggleModeBtn').click(); " style="padding:7px 14px; background:#22c55e; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:0.82rem;">Toggle</button>
-        </div>
-        <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 0;">
-          <div>
-            <p style="font-weight:600; font-size:0.88rem; color:#111;">Clear All Student Data</p>
-            <p style="font-size:0.78rem; color:#888;">Permanently delete all student records</p>
-          </div>
-          <button onclick="clearAllStudentData()" style="padding:7px 14px; background:#ef4444; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:0.82rem;">Clear Data</button>
-        </div>
-      </div>
-
-      <div style="display:flex; gap:10px; justify-content:flex-end;">
-        <button onclick="stopPortalOTPClock(); document.getElementById('adminPortalOverlay').style.display='none'; doLogout();" style="padding:10px 18px; background:#6b7280; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:0.88rem;"><i class="fa fa-sign-out"></i> Logout</button>
-        <button onclick="stopPortalOTPClock(); document.getElementById('adminPortalOverlay').style.display='none'" style="padding:10px 18px; background:#22c55e; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:0.88rem;"><i class="fa fa-arrow-left"></i> Close Portal</button>
-      </div>
-    </div>
-  </div>
-</div>
 
 <!-- ═══════════════════════════════════════════════════════
      VIEW STUDENT PAGE (modal overlay)
